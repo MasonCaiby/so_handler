@@ -1,7 +1,10 @@
 
 #!/usr/bin/env python
-""" Script to scrape images from a flickr account.
+"""
+I used a lot of code from:
+Script to scrape images from a flickr account.
 Author: Ralph Bean <rbean@redhat.com>
+https://gist.github.com/ralphbean/9966896
 """
 
 # import ConfigParser
@@ -20,8 +23,12 @@ flickr_url = 'https://api.flickr.com/services/rest/'
 
 
 def flickr_request(**kwargs):
+    '''DOCSTRING
+       This just generates a Flickr API client
+       It returns the client as a json
+    '''
     response = requests.get(flickr_url, params=dict(
-        api_key=api_key,
+        api_key=APIKey,
         format='json',
         nojsoncallback=1,
         **kwargs))
@@ -29,6 +36,21 @@ def flickr_request(**kwargs):
 
 
 def get_flickr_page(tags, page=1):
+    '''DOCSTRING
+       This generates a request to flickr and returns it
+       You can change the other kwargs, but I never needed to
+       Since I'm shooting for as many photos as I can get I set
+       the per_page to the max (500).
+       Content type toggles what the request will return.
+       tag_mode can be set to 'all' for an AND join
+       ----------
+       INPUTS:
+       tags: comma seperated list of tags you want to search for
+       page: the page # you want to return
+       ----------
+       RETURNS:
+       the request
+    '''
     return flickr_request(
         method='flickr.photos.search',
         tags=tags,
@@ -39,7 +61,19 @@ def get_flickr_page(tags, page=1):
 
 
 def get_photos_for_person(tags):
-
+    '''DOCSTRING
+       This bad boy right here pulls the photos from the
+       pages the request returns. It steps through the
+       pages froms last to first, from what I can tell
+       the last page returned by get_flickr_page is
+       actually the first page returned by a query.
+       ------------
+       INPUTS:
+       tags: [comma, seperated, list] of search tags
+       ------------
+       RETURNS:
+       None
+    '''
     pages = get_flickr_page(tags)['photos']['pages']
 
     seen = {}
@@ -51,9 +85,26 @@ def get_photos_for_person(tags):
             yield photo
 
 def main(tags, animal):
+    '''DOCSTRING
+       This is pretty much straight from Ralph Bean's repo.
+       This is what actually pulls the images and saves them to
+       the 'flickr/$animal/_____.jpg' directory.
 
-    #nsid = raw_input("NSID of the flickr user you want to scrape: ")
-
+       FLOW:
+       make photos variable by calling get_photos_for_person
+       which actually just feeds its arguments to get_flickr_page
+       and loops through the pages to pull out the phote and
+       actually just feeds its arguments to get_flickr_request
+       It then saves the images to the hard-coded folder location
+       'flickr/$animal/_____.jpg'. I limited it 3601 photos.
+       ---------
+       INPUT:
+       tags: the tags to query flickr for
+       animal: the name of the animal you are querying for
+       ---------
+       RETURNS:
+       None
+    '''
     # First get all photos
     # https://secure.flickr.com/services/api/flickr.people.getPhotos.html
 
@@ -150,22 +201,11 @@ if __name__ == '__main__':
     animals = make_animals()
 
     for animal, tags in animals.items():
-        if animal not in ['badger', 'bat', 'bear', 'bighorn_sheep',
-                          'bird', 'bobcat', 'butterfly','chipmunk',
-                          'cow','coyote','dog', 'elk',
-                          'ermine', 'gray_jay','hawk','horse',
-                          'house_wren','human','junco', 'lynx','magpie',
-                          'marmot','marten',
-                          'moose','mountain_goat','mountain_lion','mouse','mule',
-                          'mule_deer','porcupine','ptarmigan','racoon','red_fox',
-                          'red_squirrel','snowshoe_hare','stellars_jay','striped_skunk',
-                          'turkey'
-                          ]:
-            print(animal)
-            toc = time.time()
-            main(tags, animal)
-            print(time.time() - toc)
-            print()
+        print(animal)
+        toc = time.time()
+        main(tags, animal)
+        print(time.time() - toc)
+        print()
 
 
 
