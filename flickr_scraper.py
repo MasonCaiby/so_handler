@@ -1,6 +1,11 @@
 
 #!/usr/bin/env python
 """
+I save my flickr api keys in a txt file in the directory this repo
+is saved to. I then read it in. You only need the first key, apparently.
+To use this script out of box, save your key to flickr_key.txt as a csv with
+a space between the two keys (not secret key second)
+
 I used a lot of code from:
 Script to scrape images from a flickr account.
 Author: Ralph Bean <rbean@redhat.com>
@@ -10,19 +15,21 @@ https://gist.github.com/ralphbean/9966896
 # import ConfigParser
 import urllib
 import requests
-import os, errno
+import os
+import errno
 import time
+from random import randint
+from itertools import islice
 
-# Get config secrets from a file
-# config = ConfigParser.ConfigParser()
-# config.read(['flickr.ini', '/etc/flickr.ini'])
-# flickr_api_key = config.get('general', 'flickr_api_key')
 
 # API urls
 flickr_url = 'https://api.flickr.com/services/rest/'
 
+# APIKey loader
+with open('flickr_key.txt', 'r') as f:
+    APIKey = f.readline().split(', ')[0]
 
-def flickr_request(**kwargs):
+def flickr_request(APIKey, **kwargs):
     '''DOCSTRING
        This just generates a Flickr API client
        It returns the client as a json
@@ -35,29 +42,31 @@ def flickr_request(**kwargs):
     return response.json()
 
 
-def get_flickr_page(tags, page=1):
+def get_flickr_page(tags, page=1, perpage=500):
     '''DOCSTRING
        This generates a request to flickr and returns it
        You can change the other kwargs, but I never needed to
        Since I'm shooting for as many photos as I can get I set
-       the per_page to the max (500).
+       the per_page to the max (500). I will pull a random photo from
+       one of the tags I load, then check to make sure it hasn't sent before.
        Content type toggles what the request will return.
        tag_mode can be set to 'all' for an AND join
        ----------
        INPUTS:
        tags: comma seperated list of tags you want to search for
        page: the page # you want to return
+       perpage: number of photos you want per page
        ----------
        RETURNS:
        the request
     '''
-    return flickr_request(
+    return flickr_request(APIKey,
         method='flickr.photos.search',
         tags=tags,
         tag_mode='any',
         content_type=1,  # photos only
         page=page,
-        per_page=500)
+        per_page=perpage)
 
 
 def get_photos_for_person(tags):
@@ -76,15 +85,12 @@ def get_photos_for_person(tags):
     '''
     pages = get_flickr_page(tags)['photos']['pages']
 
-    seen = {}
     # Step backwards through the pictures
+    d = get_flickr_page(tags, page=pages)
+    for photo in d['photos']['photo']:
+        yield photo
 
-    for page in range(pages, 1, -1):
-        d = get_flickr_page(tags, page=page)
-        for photo in d['photos']['photo']:
-            yield photo
-
-def main(tags, animal):
+def main(tags):
     '''DOCSTRING
        This is pretty much straight from Ralph Bean's repo.
        This is what actually pulls the images and saves them to
@@ -109,103 +115,65 @@ def main(tags, animal):
     # https://secure.flickr.com/services/api/flickr.people.getPhotos.html
 
     photos = get_photos_for_person(tags)
+    url, local = get_new_photo(photos, 0)
 
-
-    # Then, with photo objects, get the images
-    # https://secure.flickr.com/services/api/misc.urls.html
-    # Each of these photo objects looks something like this
-    # {u'farm': 8,
-    #  u'id': u'13606821584',
-    #  u'isfamily': 0,
-    #  u'isfriend': 0,
-    #  u'ispublic': 1,
-    #  u'owner': u'65490292@N04',
-    #  u'secret': u'c5bfa5eb3e',
-    #  u'server': u'7171',
-    #  u'title': u''}
-    output = 'flickr/' + str(animal+'/')
-
+    output = '/'.join(local.split('/')[:-1])
     try:
         os.makedirs(output)
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
 
+    urllib.request.urlretrieve(url, local)
+
+    full_path = os.path.abspath(local)
+    return full_path
+
+def get_new_photo(photos, i):
+    '''
+        https://secure.flickr.com/services/api/misc.urls.html
+        Each of these photo objects looks something like this
+        {u'farm': 8,
+         u'id': u'13606821584',
+         u'isfamily': 0,
+         u'isfriend': 0,
+         u'ispublic': 1,
+         u'owner': u'65490292@N04',
+         u'secret': u'c5bfa5eb3e',
+         u'server': u'7171',
+         u'title': u''}
+    '''
+    photo  = next(islice(photos, i, None))
     prefix = "http://farm{farm}.staticflickr.com/{server}/"
     suffix = "{id}_{secret}_b.jpg"
+    local = 'flickr/' + suffix.format(**photo)
     template = prefix + suffix
+    url = template.format(**photo)
+    if os.path.isfile(local):
+        url, local = get_new_photo(photos, i + 1)
+    return url, local
 
-    for i, photo in enumerate(photos):
-        if i == 3601:
-            break
-        url = template.format(**photo)
-        index = "%0.6i" % i
-        local = output + index + "-" + suffix.format(**photo)
-        # print("* saving", url)
-        urllib.request.urlretrieve(url, local)
-        # print("      as", local)
-
-def make_animals():
-    #dictionary of different animal names and associated tags
-    animals = {'mule_deer': ['mule deer'],
-               'bobcat': ['bobcat'],
-               'mountain_lion': ['mountain lion', 'cougar'],
-               'coyote': ['coyote'],
-               'elk': ['elk'],
-               'ermine': ['ermine'],
-               'human': ['human'],
-               'lynx': ['lynx'],
-               'marten': ['marten'],
-               'moose': ['moose'],
-               'porcupine': ['porcupine'],
-               'ptargmigan': ['ptarmigan', 'Lagopus muta'],
-               'red_fox': ['red fox'],
-               'red_squirrel': ['red squirrel'],
-               'snowshoe_hare': ['snowshoe hare', 'Lepus americanus'],
-               'bear': ['bear','black bear','grizzly bear','grizzly'],
-               'bird': ['bird'],
-               'mountain_goat': ['mountain goat'],
-               'marmot': ['marmot'],
-               'bighorn_sheep': ['bighorn sheep'],
-               'racoon': ['racoon', 'trash panda'],
-               'dog': ['dog', 'puppy'],
-               'chipmunk': ['chipmunk'],
-               'cow': ['cow'],
-               'horse': ['horse'],
-               'domestic_sheep': ['sheep', 'domestic sheep'],
-               'turkey': ['turkey'],
-               'gray_jay': ['gray jay', 'grey jay', 'Canada jay',
-                            'whisky jack', 'Perisoreus canadensis'],
-               'dusky_grouse': ['dusky grouse', 'sooty grouse',
-                                 'blue grouse', 'Dendragapus obscurus'],
-               'mouse': ['mouse'],
-               'bat': ['bat'],
-               'striped_skunk': ['striped_skunk', 'skunk'],
-               'house_wren': ['house wren', 'Troglodytes aedon', 'wren'],
-               'stellars_jay': ['stellars jay', 'blue jay', 'long-crested jay', 'mountain jay',
-                                 'pine jay'],
-               'junco': ['junco', 'dark eyed junco', 'dark-eyed junco', 'Junco hyemalis'],
-               'badger': ['badger'],
-               'butterfly': ['butterfly'],
-               'hawk': ['hawk', 'red tail hawk', 'red tailed hawk'],
-               'magpie': ['magpie'],
-               'mule': ['mule'],
-               'prarie_dog': ['prarie dog'],
-               'pronghorn': ['pronghorn', 'Antilocapra americana', 'antelope'],
-               'rabbit': ['rabbit', 'bunny'],
-               'raven': ['raven'],
-               'sage_grouse': [' Centrocercus urophasianus', 'sage grouse', 'greater sage grouse']}
-    return animals
+def query():
+    '''DOCSRING
+       could eventually build this out so that it queries a
+       DB for a specific person to get the images they want to query.
+       Currently, it's just dogs my girlfriend likes, because she's
+       the most important
+       ----------
+       INPUTS:
+       None
+       __________
+       Returns:
+       tags: comma seperated list of dogs and things
+    '''
+    return ['puppy', 'pitbull', 'boxer', 'husky', 'malamute',
+            'german shepherd', 'border collie']
 
 if __name__ == '__main__':
-    animals = make_animals()
+    tags = query()
+    toc = time.time()
+    print(main(tags))
 
-    for animal, tags in animals.items():
-        print(animal)
-        toc = time.time()
-        main(tags, animal)
-        print(time.time() - toc)
-        print()
 
 
 
