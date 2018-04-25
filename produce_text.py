@@ -1,15 +1,20 @@
-import numpy
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import Dropout
-from keras.layers import LSTM
-from keras.callbacks import ModelCheckpoint
-from keras.utils import np_utils
-from rnn_clean import make_poem, load_data_for_model
+from rnn_clean import load_data_for_model, generate_poem
 from keras.models import load_model
 
-dataX, int_to_word, nvocab, X, y = load_data_for_model()
+def make_poem():
+    ''' DOCSTRING
+        produces a poem. Made all the functions into their own module.
+        ---------
+        INPUTS
+        NONE
+        ---------
+        RETURNS
+        poem: a poem that has been generated
+    '''
+    dataX, int_to_word, nvocab, X, y = load_data_for_model()
 
-model = load_model('weights/7.5311.hdf5')
+    model = load_model('weights/weights22---1000_words.hdf5')
+    model.compile(loss='categorical_crossentropy', optimizer='adam')
 
-make_poem('weights/7.5311.hdf5', model, dataX, int_to_word, n_vocab = nvocab)
+    poem = generate_poem(model, dataX, int_to_word, nvocab)
+    return poem
