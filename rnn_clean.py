@@ -212,7 +212,6 @@ def generate_poem(model, dataX, int_to_word, n_vocab):
         poem += result
         pattern.append(index)
         pattern = pattern[1:len(pattern)]
-    print('generate_poem\'s poem:', poem)
     return poem
 
 
