@@ -1,5 +1,4 @@
-
-#!/usr/bin/env python
+# !/usr/bin/env python
 """
 I save my flickr api keys in a txt file in the directory this repo
 is saved to. I then read it in. You only need the first key, apparently.
@@ -28,6 +27,7 @@ flickr_url = 'https://api.flickr.com/services/rest/'
 # APIKey loader
 with open('flickr_key.txt', 'r') as f:
     APIKey = f.readline().split(', ')[0]
+
 
 def flickr_request(APIKey, **kwargs):
     '''DOCSTRING
@@ -61,12 +61,12 @@ def get_flickr_page(tags, page=1, perpage=500):
        the request
     '''
     return flickr_request(APIKey,
-        method='flickr.photos.search',
-        tags=tags,
-        tag_mode='any',
-        content_type=1,  # photos only
-        page=page,
-        per_page=perpage)
+                          method='flickr.photos.search',
+                          tags=tags,
+                          tag_mode='any',
+                          content_type=1,  # photos only
+                          page=page,
+                          per_page=perpage)
 
 
 def get_photos_for_person(tags):
@@ -89,6 +89,7 @@ def get_photos_for_person(tags):
     d = get_flickr_page(tags, page=pages)
     for photo in d['photos']['photo']:
         yield photo
+
 
 def main(tags):
     '''DOCSTRING
@@ -129,6 +130,7 @@ def main(tags):
     full_path = os.path.abspath(local)
     return full_path
 
+
 def get_new_photo(photos, i):
     '''
         https://secure.flickr.com/services/api/misc.urls.html
@@ -143,7 +145,7 @@ def get_new_photo(photos, i):
          u'server': u'7171',
          u'title': u''}
     '''
-    photo  = next(islice(photos, i, None))
+    photo = next(islice(photos, i, None))
     prefix = "http://farm{farm}.staticflickr.com/{server}/"
     suffix = "{id}_{secret}_b.jpg"
     local = 'flickr/' + suffix.format(**photo)
@@ -152,6 +154,7 @@ def get_new_photo(photos, i):
     if os.path.isfile(local):
         url, local = get_new_photo(photos, i + 1)
     return url, local
+
 
 def query():
     '''DOCSRING
@@ -169,23 +172,8 @@ def query():
     return ['puppy', 'pitbull', 'boxer', 'husky', 'malamute',
             'german shepherd', 'border collie']
 
+
 if __name__ == '__main__':
     tags = query()
     toc = time.time()
     print(main(tags))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#

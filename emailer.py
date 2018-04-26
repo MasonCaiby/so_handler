@@ -41,7 +41,6 @@ def build_message(name, name_from, from_email, password, to_email, poem, img):
             Love, <br>
             """ + str(name_from)
 
-
     # Record the MIME types.
     msgHtml = MIMEText(html, 'html')
 
@@ -54,12 +53,11 @@ def build_message(name, name_from, from_email, password, to_email, poem, img):
     msg.attach(msgHtml)
     msg.attach(msgImg)
 
-    server = smtplib.SMTP('smtp.gmail.com',587) #port 465 or 587
+    server = smtplib.SMTP('smtp.gmail.com', 587)  # port 465 or 587
     server.ehlo()
     server.starttls()
     server.ehlo()
     server.login(from_email, password)
-    #server.send_message(msg)
     server.sendmail(from_email, to_email, msg.as_string())
     server.close()
 
@@ -68,6 +66,6 @@ if __name__ == "__main__":
         creds = gmail.read().split(', ')
         from_email = creds[0]
         from_password = creds[1]
-    build_message('Marissa', 'Max', from_email, from_password,
+    build_message('Mi amor', 'Your shortcake muffin pie puppy eyes', from_email, from_password,
                   'custome.love.poems@gmail.com', 'poem',
                   'flickr/27209935818_26bc8f7476_b.jpg')

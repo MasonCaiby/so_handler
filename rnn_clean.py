@@ -5,14 +5,16 @@ from keras.layers import Dense, Dropout, LSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
 
-def load_and_map():
+
+def load_and_map(percentage_words=1):
     ''' DOCSTRING
         This loads the data and maps the words to numbers etc.
-        I just hard coded everything, as the actual splits etc. are dependent on
-        the file you are using.
+        I just hard coded everything, as the actual splits etc. are dependent
+        on the file you are using.
         ----------
         INPUTS
-        NONE
+        percentage_words: number of words you want to use to train your model
+                          on defaults to 1
         ----------
         RETURNS
         poem_words: a list of every word, in the order they appear in
@@ -24,8 +26,12 @@ def load_and_map():
     '''
 
     # load text file
+
     with open('data/cleanedpoems.txt') as f:
         poem_words = [word+' ' for word in f.read().split(' ')]
+
+    num_words = int(len(poem_words)*percentage_words)
+    poem_words = poem_words[:num_words]
 
     # create mapping of unique chars to integers
     words = sorted(list(set(poem_words)))
@@ -39,11 +45,11 @@ def load_and_map():
 
 def prep_data_set(n_words, poems, word_to_int, n_vocab):
     ''' DOCSTRING
-        This makes the patterns you train a model on. since it is an LSTM model,
-        you split it into patterns of seq_length words and give it the word that
-        should follow. Right now, I have it hard coded to 10, though you could
-        change it if you wanted (I believe 10 is a good number for most things,
-        so I leave it)
+        This makes the patterns you train a model on. since it is an LSTM
+        model, you split it into patterns of seq_length words and give it the
+        word that should follow. Right now, I have it hard coded to 10, though
+        you could change it if you wanted (I believe 10 is a good number for
+        most things, so I leave it)
         ---------
         INPUTS
         n_words: the number of words you have to train on
@@ -104,6 +110,7 @@ def make_model(X, y):
     model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
     return model
 
+
 def fit_model(model, weight_file, filepath, X, y):
     ''' DOCSTRING
         This fits the model. It saves the weights to filepath and optionally
@@ -132,7 +139,8 @@ def fit_model(model, weight_file, filepath, X, y):
         model.load_weights(weight_file)
 
     # fit the model
-    hista = model.fit(X, y, verbose=1, epochs=1, batch_size=1, callbacks=callbacks_list)
+    hista = model.fit(X, y, verbose=1, epochs=1, batch_size=1,
+                      callbacks=callbacks_list)
     return model, callbacks_list, filepath
 
 
@@ -143,7 +151,8 @@ def make_poem(model, dataX, int_to_word, n_vocab):
         so I can read in a comment on  photo and make a poem from that. But
         that would mean all words in the comment would have to be in my word
         bank. That seems improbable though (doggo, pupper, puns etc.) I'd have
-        to decide on a filler word. But I'm not sure I want to do that right now.
+        to decide on a filler word. But I'm not sure I want to do that right
+        now.
         ---------
         INPUT
         model
@@ -175,6 +184,7 @@ def make_poem(model, dataX, int_to_word, n_vocab):
         pattern = pattern[1:len(pattern)]
     print("\nDone.")
 
+
 def generate_poem(model, dataX, int_to_word, n_vocab):
     ''' DOCSTRING
         Same same as make poem, but returns the poem and doesnt print it.
@@ -202,14 +212,16 @@ def generate_poem(model, dataX, int_to_word, n_vocab):
         poem += result
         pattern.append(index)
         pattern = pattern[1:len(pattern)]
+    print('generate_poem\'s poem:', poem)
     return poem
 
 
-def load_data_for_model():
+def load_data_for_model(percentage_words=1):
     ''' DOCSTRING
-        Loads the data for the model. This essentially gets the numbers etc. you
-        need. Call this when you are just trying to predict with the model, not
-        train it from scratch. I guess I could just pickle everything in here.
+        Loads the data for the model. This essentially gets the numbers etc.
+        you need. Call this when you are just trying to predict with the model,
+        not train it from scratch. I guess I could just pickle everything in
+        here.
         ---------
         INPUT
         NONE
@@ -221,47 +233,58 @@ def load_data_for_model():
         X: the X sequences
         y: the ys the go with the Xs
     '''
-    poems, words, word_to_int, int_to_word, n_words, n_vocab = load_and_map()
+    poems, words, word_to_int, int_to_word, n_words, n_vocab = \
+                                                load_and_map(percentage_words)
 #   Quick summary of loaded data
-    #print('Total Words: {}\nTotal Vocab: {}'.format(n_words, n_vocab))
+#   print('Total Words: {}\nTotal Vocab: {}'.format(n_words, n_vocab))
 
 #   prep the data so it can be used in the model
     seq_length, dataX, dataY, n_patterns, X, y = \
         prep_data_set(n_words, poems, word_to_int, n_vocab)
 
 #   Summary of the number of patterns
-    #print("Total Patterns: {}".format(n_patterns))
+#   print("Total Patterns: {}".format(n_patterns))
 
     return dataX, int_to_word, n_vocab, X, y
 
-def train_model(filepath=False):
+
+def train_model(filename_start, filename_end, filepath=False):
     ''' DOCSTRING
         This, as the name suggests, trains the model. You can choose to start
         training a new model or not.
         ---------
         INPUTS
-        filepath: if given, will load the old weights if False (default) it will
-                  start training a new model
+        filename_start: the first half of the filepath you will save weights to
+                        use it will save the epoch number between the start
+                        and end
+        filename_end: the second half of the filepath you will save weights to
+                      use it will save the epoch number between the start
+                      and end
+        filepath: if given, will load the old weights if False (default) it
+                  will start training a new model
         ---------
         RETURNS
         NONE just saves weights to a file
     '''
     # make the data in one go:
-    dataX, int_to_word, n_vocab, X, y = load_data_for_model()
+    dataX, int_to_word, n_vocab, X, y = \
+                                load_data_for_model(percentage_words=1)
 
     # make the model
     model = make_model(X, y)
 
     if not filepath:
-        filepath_save = 'weights/weights_0_all_words.hdf5'
-        model, callbacks_list, filepath = fit_model(model, False, filepath_save, X, y)
+        filepath_save = filename_start + '0' + filename_end
+        model, callbacks_list, filepath = fit_model(model, False,
+                                                    filepath_save, X, y)
         print('Made file: ', filepath)
     for i in range(1, 170):
         # refit the model, return the callbacks, model, and latest file path
         # uses the most recent filepath to refit the model
         print('loading weights from: ', filepath)
-        filepath_save = 'weights/weights_'+str(i)+'_all_words.hdf5'
-        model, callbacks_list, filepath = fit_model(model, filepath, filepath_save, X, y)
+        filepath_save = filename_start + str(i) + filename_end
+        model, callbacks_list, filepath = fit_model(model, filepath,
+                                                    filepath_save, X, y)
         print('saving weights to: ', filepath)
         # make a new poem
         print(generate_poem(model, dataX, int_to_word, n_vocab))
@@ -269,5 +292,5 @@ def train_model(filepath=False):
 
 
 if __name__ == "__main__":
-
-    train_model(filepath = 'weights/weights_0_all_words.hdf5')
+    train_model(filename_start='weights/weights_',
+                filename_end='_10_perc_words.hdf5')
