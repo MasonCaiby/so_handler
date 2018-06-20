@@ -19,6 +19,7 @@ import errno
 import time
 from random import randint
 from itertools import islice
+from random import shuffle
 
 
 # API urls
@@ -169,8 +170,10 @@ def query():
        Returns:
        tags: comma seperated list of dogs and things
     '''
-    return ['puppy', 'pitbull', 'boxer', 'husky', 'malamute',
+    tags = ['puppy', 'pitbull', 'boxer', 'husky', 'malamute',
             'german shepherd', 'border collie']
+    shuffle(tags)
+    return tags
 
 
 if __name__ == '__main__':

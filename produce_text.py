@@ -1,6 +1,7 @@
 from rnn_clean import load_data_for_model, generate_poem
 from keras.models import load_model
 
+
 def make_poem(weights_file):
     ''' DOCSTRING
         produces a poem. Made all the functions into their own module.

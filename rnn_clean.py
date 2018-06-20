@@ -1,18 +1,21 @@
 import numpy
 import sys
+import os, errno
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
+from emailer import build_message
 
 
-def load_and_map(percentage_words=1):
+def load_and_map(filepath, percentage_words=1):
     ''' DOCSTRING
         This loads the data and maps the words to numbers etc.
         I just hard coded everything, as the actual splits etc. are dependent
         on the file you are using.
         ----------
         INPUTS
+        filepath: the file with the text you want to train your poems on
         percentage_words: number of words you want to use to train your model
                           on defaults to 1
         ----------
@@ -26,8 +29,7 @@ def load_and_map(percentage_words=1):
     '''
 
     # load text file
-
-    with open('data/cleanedpoems.txt') as f:
+    with open(filepath) as f:
         poem_words = [word+' ' for word in f.read().split(' ')]
 
     num_words = int(len(poem_words)*percentage_words)
@@ -37,9 +39,11 @@ def load_and_map(percentage_words=1):
     words = sorted(list(set(poem_words)))
     word_to_int = dict((c, i) for i, c in enumerate(words))
     int_to_word = dict((i, c) for i, c in enumerate(words))
+
     # summarize the dataset
     n_words = len(poem_words)
     n_vocab = len(words)
+    print(poem_words[:20])
     return poem_words, words, word_to_int, int_to_word, n_words, n_vocab
 
 
@@ -155,10 +159,10 @@ def make_poem(model, dataX, int_to_word, n_vocab):
         now.
         ---------
         INPUT
-        model
-        dataX
-        int_to_word
-        n_vocab
+        model: the trained model
+        dataX: the X data
+        int_to_word: your int_to_word dict
+        n_vocab: the number of words you've used
         ---------
         RETURNS
         NONE just a printed poem
@@ -215,7 +219,7 @@ def generate_poem(model, dataX, int_to_word, n_vocab):
     return poem
 
 
-def load_data_for_model(percentage_words=1):
+def load_data_for_model(text_path, percentage_words=1):
     ''' DOCSTRING
         Loads the data for the model. This essentially gets the numbers etc.
         you need. Call this when you are just trying to predict with the model,
@@ -223,7 +227,10 @@ def load_data_for_model(percentage_words=1):
         here.
         ---------
         INPUT
-        NONE
+        text_path: filepath to the training text you have
+        percentage_words: the percentage of words from your training set you
+                          want to train your model on, useful for test running
+                          your model
         ---------
         RETURNS
         dataX: the X sequences
@@ -233,7 +240,7 @@ def load_data_for_model(percentage_words=1):
         y: the ys the go with the Xs
     '''
     poems, words, word_to_int, int_to_word, n_words, n_vocab = \
-                                                load_and_map(percentage_words)
+        load_and_map(text_path, percentage_words)
 #   Quick summary of loaded data
 #   print('Total Words: {}\nTotal Vocab: {}'.format(n_words, n_vocab))
 
@@ -247,12 +254,15 @@ def load_data_for_model(percentage_words=1):
     return dataX, int_to_word, n_vocab, X, y
 
 
-def train_model(filename_start, filename_end, filepath=False):
+def train_model(text_path, filename_start, filename_end, filepath=False,
+                percentage_words=1, start=1, iterations=170,
+                remote_verbose_email=False):
     ''' DOCSTRING
         This, as the name suggests, trains the model. You can choose to start
         training a new model or not.
         ---------
         INPUTS
+        text_path: the filepath to your training data
         filename_start: the first half of the filepath you will save weights to
                         use it will save the epoch number between the start
                         and end
@@ -261,23 +271,42 @@ def train_model(filename_start, filename_end, filepath=False):
                       and end
         filepath: if given, will load the old weights if False (default) it
                   will start training a new model
+        percentage_words: the number of words you want to train on
+        start: the number you want to start on, for file names. useful if
+               you're using this function to train the same model on the same
+               data multiple times.
+        iterations: number of iterations you want to go through
+        remote_verbose_email: the email address you want to send the poem to,
+                              if you want to monitor progress remotely
         ---------
         RETURNS
         NONE just saves weights to a file
     '''
     # make the data in one go:
     dataX, int_to_word, n_vocab, X, y = \
-                                load_data_for_model(percentage_words=1)
+        load_data_for_model(text_path, percentage_words)
 
     # make the model
     model = make_model(X, y)
+
+    # safely make the folder if it doesn't exist
+    folder_name = filename_start.split('/')[0]
+    try:
+        os.makedirs(folder_name)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
     if not filepath:
         filepath_save = filename_start + '0' + filename_end
         model, callbacks_list, filepath = fit_model(model, False,
                                                     filepath_save, X, y)
         print('Made file: ', filepath)
-    for i in range(1, 170):
+        print(generate_poem(model, dataX, int_to_word, n_vocab))
+        print("\a\n")
+
+    top_range = start + iterations
+    for i in range(start, top_range):
         # refit the model, return the callbacks, model, and latest file path
         # uses the most recent filepath to refit the model
         print('loading weights from: ', filepath)
@@ -286,10 +315,29 @@ def train_model(filename_start, filename_end, filepath=False):
                                                     filepath_save, X, y)
         print('saving weights to: ', filepath)
         # make a new poem
-        print(generate_poem(model, dataX, int_to_word, n_vocab))
-        print("\a")
+        poem = generate_poem(model, dataX, int_to_word, n_vocab)
+        print(poem)
+        print("\a\n")
+
+        # send an email with the message, useful for remote monitoring of model
+        # e.g. training on AWS for long periods of time
+        if remote_verbose_email:
+            subject = 'Epoch number {} finished training, poem enclosed'.format(i)
+            with open('gmail.csv') as gmail:
+                creds = gmail.read().split(', ')
+                from_email = creds[0]
+                from_password = creds[1]
+            build_message(subject=subject,
+                          name='RNN Trainer',
+                          name_from='Your model in training',
+                          from_email=from_email, password=from_password,
+                          to_email=remote_verbose_email, poem=poem)
+            print('email to {} sent\n'.format(remote_verbose_email))
 
 
 if __name__ == "__main__":
-    train_model(filename_start='weights/weights_',
-                filename_end='_10_perc_words.hdf5')
+    train_model(text_path='data/pratchett.txt',
+                filename_start='pratchett_weights_10_perc/weights_',
+                filename_end='_words.hdf5',
+                percentage_words=.01,
+                remote_verbose_email='maxwell.caudle@gmail.com')
