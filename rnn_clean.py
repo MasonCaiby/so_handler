@@ -1,11 +1,12 @@
 import numpy
 import sys
-import os, errno
+import os, errno, time
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
 from emailer import build_message
+from helpers import safe_folder, newest_file
 
 
 def load_and_map(filepath, percentage_words=1):
@@ -24,30 +25,27 @@ def load_and_map(filepath, percentage_words=1):
         words: a sorted set of the poem_words
         word_to_int: dictionary word: int
         int_to_word: dictionary int: word
-        n_words: the total number of words in poem_words
+        n_chars: the total number of words in poem_words
         n_vocab: the number of unique words
     '''
 
     # load text file
     with open(filepath) as f:
-        poem_words = [word+' ' for word in f.read().split(' ')]
+        text = f.read().lower()
 
-    num_words = int(len(poem_words)*percentage_words)
-    poem_words = poem_words[:num_words]
+    text = text[:int(len(text)*percentage_words)]
 
-    # create mapping of unique chars to integers
-    words = sorted(list(set(poem_words)))
-    word_to_int = dict((c, i) for i, c in enumerate(words))
-    int_to_word = dict((i, c) for i, c in enumerate(words))
+    chars = sorted(list(set(text)))
+    char_to_int = dict((c,i) for i, c in enumerate(chars))
+    int_to_char = dict((i,c) for c,i in char_to_int.items())
 
     # summarize the dataset
-    n_words = len(poem_words)
-    n_vocab = len(words)
-    print(poem_words[:20])
-    return poem_words, words, word_to_int, int_to_word, n_words, n_vocab
+    n_chars = len(text)
+    n_vocab = len(chars)
+    return text, char_to_int, int_to_char, n_chars, n_vocab
 
 
-def prep_data_set(n_words, poems, word_to_int, n_vocab):
+def prep_data_set(n_chars, poems, word_to_int, n_vocab):
     ''' DOCSTRING
         This makes the patterns you train a model on. since it is an LSTM
         model, you split it into patterns of seq_length words and give it the
@@ -56,7 +54,7 @@ def prep_data_set(n_words, poems, word_to_int, n_vocab):
         most things, so I leave it)
         ---------
         INPUTS
-        n_words: the number of words you have to train on
+        n_chars: the number of chars you have to train on
         poems: the word list
         word_to_int: the dictionary that converts words to integers
         n_vocab: the number of unique words you have
@@ -70,10 +68,10 @@ def prep_data_set(n_words, poems, word_to_int, n_vocab):
         y: reshaped dataY to patterns by seq length
     '''
     # prepare the dataset of input to output pairs encoded as integers
-    seq_length = 10
+    seq_length = 100
     dataX = []
     dataY = []
-    for i in range(0, n_words - seq_length, 1):
+    for i in range(0, n_chars - seq_length, 1):
         seq_in = poems[i:i + seq_length]
         seq_out = poems[i + seq_length]
         dataX.append([word_to_int[word] for word in seq_in])
@@ -105,13 +103,14 @@ def make_model(X, y):
     '''
     # define the LSTM model
     model = Sequential()
-    model.add(LSTM(512, return_sequences=True,
+    model.add(LSTM(256, return_sequences=True,
                    input_shape=(X.shape[1], X.shape[2])))
-    model.add(LSTM(512, return_sequences=False,
+    model.add(Dropout(0.2))
+    model.add(LSTM(256, return_sequences=False,
                    input_shape=(X.shape[1], X.shape[2])))
     model.add(Dropout(0.2))
     model.add(Dense(y.shape[1], activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
+    model.compile(loss='categorical_crossentropy', optimizer='adam')
     return model
 
 
@@ -141,11 +140,12 @@ def fit_model(model, weight_file, filepath, X, y):
     # use historical weights, if given
     if weight_file:
         model.load_weights(weight_file)
+        model.compile(loss='categorical_crossentropy', optimizer='adam')
 
     # fit the model
-    hista = model.fit(X, y, verbose=1, epochs=1, batch_size=1,
+    hista = model.fit(X, y, verbose=1, epochs=1, batch_size=5526,
                       callbacks=callbacks_list)
-    return model, callbacks_list, filepath
+    return model, callbacks_list
 
 
 def make_poem(model, dataX, int_to_word, n_vocab):
@@ -239,14 +239,14 @@ def load_data_for_model(text_path, percentage_words=1):
         X: the X sequences
         y: the ys the go with the Xs
     '''
-    poems, words, word_to_int, int_to_word, n_words, n_vocab = \
+    poems, word_to_int, int_to_word, n_chars, n_vocab = \
         load_and_map(text_path, percentage_words)
 #   Quick summary of loaded data
-#   print('Total Words: {}\nTotal Vocab: {}'.format(n_words, n_vocab))
+#   print('Total Words: {}\nTotal Vocab: {}'.format(n_chars, n_vocab))
 
 #   prep the data so it can be used in the model
     seq_length, dataX, dataY, n_patterns, X, y = \
-        prep_data_set(n_words, poems, word_to_int, n_vocab)
+        prep_data_set(n_chars, poems, word_to_int, n_vocab)
 
 #   Summary of the number of patterns
 #   print("Total Patterns: {}".format(n_patterns))
@@ -291,28 +291,25 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
 
     # safely make the folder if it doesn't exist
     folder_name = filename_start.split('/')[0]
-    try:
-        os.makedirs(folder_name)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
+    safe_folder(folder_name)
 
     if not filepath:
         filepath_save = filename_start + '0' + filename_end
-        model, callbacks_list, filepath = fit_model(model, False,
-                                                    filepath_save, X, y)
+        model, callbacks_list = fit_model(model, False, filepath_save, X, y)
+        filepath = newest_file(folder_name)
         print('Made file: ', filepath)
         print(generate_poem(model, dataX, int_to_word, n_vocab))
         print("\a\n")
 
     top_range = start + iterations
-    for i in range(start, top_range):
+    for epoch_number in range(start, top_range):
         # refit the model, return the callbacks, model, and latest file path
         # uses the most recent filepath to refit the model
         print('loading weights from: ', filepath)
-        filepath_save = filename_start + str(i) + filename_end
-        model, callbacks_list, filepath = fit_model(model, filepath,
+        filepath_save = filename_start + str(epoch_number) + filename_end
+        model, callbacks_list = fit_model(model, filepath,
                                                     filepath_save, X, y)
+        filepath = newest_file(folder_name)
         print('saving weights to: ', filepath)
         # make a new poem
         poem = generate_poem(model, dataX, int_to_word, n_vocab)
@@ -322,22 +319,12 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
         # send an email with the message, useful for remote monitoring of model
         # e.g. training on AWS for long periods of time
         if remote_verbose_email:
-            subject = 'Epoch number {} finished training, poem enclosed'.format(i)
-            with open('gmail.csv') as gmail:
-                creds = gmail.read().split(', ')
-                from_email = creds[0]
-                from_password = creds[1]
-            build_message(subject=subject,
-                          name='RNN Trainer',
-                          name_from='Your model in training',
-                          from_email=from_email, password=from_password,
-                          to_email=remote_verbose_email, poem=poem)
-            print('email to {} sent\n'.format(remote_verbose_email))
+            remote_verbose_emailer(epoch_number, remote_verbose_email, poem)
 
 
 if __name__ == "__main__":
     train_model(text_path='data/pratchett.txt',
-                filename_start='pratchett_weights_10_perc/weights_',
-                filename_end='_words.hdf5',
+                #filepath='weights/weights-improvement-50-1.4282-bigger.hdf5',
                 percentage_words=.01,
-                remote_verbose_email='maxwell.caudle@gmail.com')
+                filename_start='text/',
+                filename_end='_all_chars--loss_{loss:.4f}.hdf5')
