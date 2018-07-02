@@ -324,7 +324,8 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
 
 if __name__ == "__main__":
     train_model(text_path='data/pratchett.txt',
-                #filepath='weights/weights-improvement-50-1.4282-bigger.hdf5',
-                percentage_words=.01,
-                filename_start='text/',
-                filename_end='_all_chars--loss_{loss:.4f}.hdf5')
+                filepath='weights/weights-improvement-50-1.4282-bigger.hdf5',
+                filename_start='weights/',
+                start=51,
+                filename_end='_all_chars--loss_{loss:.4f}.hdf5',
+                remote_verbose_email='maxwell.caudle@gmail.com')
