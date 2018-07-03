@@ -7,7 +7,7 @@ import datetime
 
 
 def build_message(name, name_from, from_email, password, to_email, poem,
-                  subject, img=False):
+                  subject=False, img=False):
     ''' DOCSTRING
         This builds and sends an email. The from email address must be a gmail
         address and have its security set to less trustyworth apps, or whatever
@@ -27,7 +27,8 @@ def build_message(name, name_from, from_email, password, to_email, poem,
     '''
     now = datetime.datetime.now()
     date = now.strftime("%m-%d-%Y")
-    subject = "I love you, {} ({})".format(name, date)
+    if not subject:
+        subject = "I love you, {} ({})".format(name, date)
 
     # Create the container (outer) email message.
     msg = MIMEMultipart()

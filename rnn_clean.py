@@ -6,7 +6,7 @@ from keras.layers import Dense, Dropout, LSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
 from emailer import build_message
-from helpers import safe_folder, newest_file
+from helpers import safe_folder, newest_file, remote_verbose_emailer
 
 
 def load_and_map(filepath, percentage_words=1):
@@ -21,46 +21,47 @@ def load_and_map(filepath, percentage_words=1):
                           on defaults to 1
         ----------
         RETURNS
-        poem_words: a list of every word, in the order they appear in
-        words: a sorted set of the poem_words
-        word_to_int: dictionary word: int
-        int_to_word: dictionary int: word
-        n_chars: the total number of words in poem_words
-        n_vocab: the number of unique words
+        corpus: a list of every word or character, in the order they appear in
+        character_to_int: dictionary {character: int}
+        int_to_character: dictionary {int: character}
+        corpus_length: the total number of characters in poem_words
+        n_vocab: the number of unique characters
     '''
 
     # load text file
     with open(filepath) as f:
         text = f.read().lower()
 
-    text = text[:int(len(text)*percentage_words)]
+    corpus = text[:int(len(text)*percentage_words)]
 
-    chars = sorted(list(set(text)))
-    char_to_int = dict((c,i) for i, c in enumerate(chars))
-    int_to_char = dict((i,c) for c,i in char_to_int.items())
+    characters = sorted(list(set(corpus)))
+    character_to_int = dict((c, i) for i, c in enumerate(characters))
+    int_to_character = dict((i, c) for c, i in character_to_int.items())
 
     # summarize the dataset
-    n_chars = len(text)
-    n_vocab = len(chars)
-    return text, char_to_int, int_to_char, n_chars, n_vocab
+    corpus_length = len(corpus)
+    n_vocab = len(characters)
+    return corpus, character_to_int, int_to_character, corpus_length, n_vocab
 
 
-def prep_data_set(n_chars, poems, word_to_int, n_vocab):
+def prep_data_set(corpus_length, corpus, character_to_int, n_vocab,
+                  seq_length=100):
     ''' DOCSTRING
         This makes the patterns you train a model on. since it is an LSTM
         model, you split it into patterns of seq_length words and give it the
-        word that should follow. Right now, I have it hard coded to 10, though
-        you could change it if you wanted (I believe 10 is a good number for
+        word that should follow. Right now, I have it hard coded to 100, though
+        you could change it if you wanted (I believe 100 is a good number for
         most things, so I leave it)
         ---------
         INPUTS
-        n_chars: the number of chars you have to train on
-        poems: the word list
-        word_to_int: the dictionary that converts words to integers
+        corpus_length: the number of chars you have to train on
+        corpus: the list of characters you are training your model on
+        character_to_int: the dictionary that converts words to integers
         n_vocab: the number of unique words you have
+        seq_length: the length of characters/words you want to train your model
         ---------
         RETURNS
-        seq_length: the sequence length, currently at 10 words
+        seq_length: the sequence length, currently at 100 characters
         dataX: the different sequences made
         dataY: the word following each sequence
         n_patterns: the total number of
@@ -68,14 +69,13 @@ def prep_data_set(n_chars, poems, word_to_int, n_vocab):
         y: reshaped dataY to patterns by seq length
     '''
     # prepare the dataset of input to output pairs encoded as integers
-    seq_length = 100
     dataX = []
     dataY = []
-    for i in range(0, n_chars - seq_length, 1):
-        seq_in = poems[i:i + seq_length]
-        seq_out = poems[i + seq_length]
-        dataX.append([word_to_int[word] for word in seq_in])
-        dataY.append(word_to_int[seq_out])
+    for i in range(0, corpus_length - seq_length, 1):
+        seq_in = corpus[i:i + seq_length]
+        seq_out = corpus[i + seq_length]
+        dataX.append([character_to_int[character] for character in seq_in])
+        dataY.append(character_to_int[seq_out])
     n_patterns = len(dataX)
 
     # reshape X to be [samples, time steps, features]
@@ -129,8 +129,6 @@ def fit_model(model, weight_file, filepath, X, y):
         RETURNS
         model: the model, if you are loading pretrained weights, you dont need
                to remake the model
-        callbacks_list: the callbacks returned from the keras model
-        filepath: the saved filepath
     '''
     # define the checkpoint
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1,
@@ -145,10 +143,10 @@ def fit_model(model, weight_file, filepath, X, y):
     # fit the model
     hista = model.fit(X, y, verbose=1, epochs=1, batch_size=5526,
                       callbacks=callbacks_list)
-    return model, callbacks_list
+    return model
 
 
-def make_poem(model, dataX, int_to_word, n_vocab):
+def make_text(model, dataX, int_to_character, n_vocab):
     ''' DOCSTRING
         This makes a poem, from the model and a randomly selected pattern.
         I MIGHT eventually build this out so it can take a sequnce given to it
@@ -161,7 +159,7 @@ def make_poem(model, dataX, int_to_word, n_vocab):
         INPUT
         model: the trained model
         dataX: the X data
-        int_to_word: your int_to_word dict
+        int_to_character: your int_to_word dict
         n_vocab: the number of words you've used
         ---------
         RETURNS
@@ -182,21 +180,21 @@ def make_poem(model, dataX, int_to_word, n_vocab):
         prediction = model.predict(x, verbose=0)
         index = numpy.argmax(prediction)
         result = int_to_word[index]
-        seq_in = [int_to_word[value] for value in pattern]
+        seq_in = [int_to_character[value] for value in pattern]
         sys.stdout.write(result)
         pattern.append(index)
         pattern = pattern[1:len(pattern)]
     print("\nDone.")
 
 
-def generate_poem(model, dataX, int_to_word, n_vocab):
+def generate_text(model, dataX, int_to_character, n_vocab):
     ''' DOCSTRING
         Same same as make poem, but returns the poem and doesnt print it.
         ---------
         INPUT
         model: model w/ loaded weights
         dataX: the x patterns
-        int_to_word: the int to word dictionary
+        int_to_character: the int to word dictionary
         n_vocab: the number of unique words you have
         ---------
         RETURNS
@@ -211,8 +209,8 @@ def generate_poem(model, dataX, int_to_word, n_vocab):
         x = x / float(n_vocab)
         prediction = model.predict(x, verbose=0)
         index = numpy.argmax(prediction)
-        result = int_to_word[index]
-        seq_in = [int_to_word[value] for value in pattern]
+        result = int_to_character[index]
+        seq_in = [int_to_character[value] for value in pattern]
         poem += result
         pattern.append(index)
         pattern = pattern[1:len(pattern)]
@@ -234,12 +232,13 @@ def load_data_for_model(text_path, percentage_words=1):
         ---------
         RETURNS
         dataX: the X sequences
-        int_to_word: the int to word dictionary
+        int_to_character: the int to word dictionary
         n_vocab: the number of unique words
         X: the X sequences
         y: the ys the go with the Xs
     '''
-    poems, word_to_int, int_to_word, n_chars, n_vocab = \
+
+    corpus, character_to_int, int_to_character, corpus_length, n_vocab = \
         load_and_map(text_path, percentage_words)
 #   Quick summary of loaded data
 #   print('Total Words: {}\nTotal Vocab: {}'.format(n_chars, n_vocab))
@@ -251,7 +250,7 @@ def load_data_for_model(text_path, percentage_words=1):
 #   Summary of the number of patterns
 #   print("Total Patterns: {}".format(n_patterns))
 
-    return dataX, int_to_word, n_vocab, X, y
+    return dataX, int_to_character, n_vocab, X, y
 
 
 def train_model(text_path, filename_start, filename_end, filepath=False,
@@ -283,7 +282,7 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
         NONE just saves weights to a file
     '''
     # make the data in one go:
-    dataX, int_to_word, n_vocab, X, y = \
+    dataX, int_to_character, n_vocab, X, y = \
         load_data_for_model(text_path, percentage_words)
 
     # make the model
@@ -295,10 +294,10 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
 
     if not filepath:
         filepath_save = filename_start + '0' + filename_end
-        model, callbacks_list = fit_model(model, False, filepath_save, X, y)
+        model = fit_model(model, False, filepath_save, X, y)
         filepath = newest_file(folder_name)
         print('Made file: ', filepath)
-        print(generate_poem(model, dataX, int_to_word, n_vocab))
+        print(generate_poem(model, dataX, int_to_character, n_vocab))
         print("\a\n")
 
     top_range = start + iterations
@@ -308,18 +307,22 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
         print('loading weights from: ', filepath)
         filepath_save = filename_start + str(epoch_number) + filename_end
         model, callbacks_list = fit_model(model, filepath,
-                                                    filepath_save, X, y)
+                                          filepath_save, X, y)
+        # since we include the loss in the filename we have to check which file
+        # we just saved. I can't find a way to get that from keras's callbacks
         filepath = newest_file(folder_name)
         print('saving weights to: ', filepath)
+
         # make a new poem
-        poem = generate_poem(model, dataX, int_to_word, n_vocab)
+        predicted_text = generate_text(model, dataX, int_to_word, n_vocab)
         print(poem)
         print("\a\n")
 
         # send an email with the message, useful for remote monitoring of model
         # e.g. training on AWS for long periods of time
         if remote_verbose_email:
-            remote_verbose_emailer(epoch_number, remote_verbose_email, poem)
+            remote_verbose_emailer(epoch_number, remote_verbose_email,
+                                   predicted_text)
 
 
 if __name__ == "__main__":
