@@ -1,20 +1,20 @@
 import argparse, os
+import flickr_scraper
 from time import time
-from flickr_scraper import main, query
 from emailer import build_message
 from produce_text import make_poem
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("-to", "--to_name", help="Person to send email to")
+parser.add_argument("-to_name", "--to_name", help="Person to send email to")
 parser.add_argument("-from", "--from_name", help="Your name")
 parser.add_argument("-to_email", "--to_email",
                     help="Email you want to send it to")
 args = parser.parse_args()
 
 poem = make_poem('weights/weights_127_10_perc_words.hdf5')
-tags = query()
-img = main(tags)
+tags = flickr_scraper.query()
+img = flickr_scraper.main(tags)
 
 
 with open('gmail.csv') as gmail:
