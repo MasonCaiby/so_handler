@@ -314,7 +314,7 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
         # uses the most recent filepath to refit the model
         print('loading weights from: ', filepath)
         filepath_save = filename_start + str(epoch_number) + filename_end
-        model, callbacks_list = fit_model(model, filepath,
+        model = fit_model(model, filepath,
                                           filepath_save, X, y)
         # since we include the loss in the filename we have to check which file
         # we just saved. I can't find a way to get that from keras's callbacks
@@ -322,8 +322,8 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
         print('saving weights to: ', filepath)
 
         # make a new poem
-        predicted_text = generate_text(model, dataX, int_to_word, n_vocab)
-        print(poem)
+        predicted_text = generate_text(model, dataX, int_to_character, n_vocab)
+        print(predicted_text)
         print("\a\n")
 
         # send an email with the message, useful for remote monitoring of model
@@ -335,7 +335,7 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
 
 if __name__ == "__main__":
     train_model(text_path='data/pratchett.txt',
+                filepath='weights_large/50--loss_1.2281.hdf5',
                 filename_start='weights_large/',
                 filename_end='--loss_{loss:.4f}.hdf5',
-                percentage_words=.001,
-                remote_verbose_email='maxwell.caudle@gmail.com')
+                start=51)

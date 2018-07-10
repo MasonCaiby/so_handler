@@ -74,7 +74,7 @@ def get_photos_for_person(tags):
     '''DOCSTRING
        This bad boy right here pulls the photos from the
        pages the request returns. It steps through the
-       pages froms last to first, from what I can tell
+       pages from last to first, from what I can tell
        the last page returned by get_flickr_page is
        actually the first page returned by a query.
        ------------
@@ -129,6 +129,8 @@ def main(tags):
     urllib.request.urlretrieve(url, local)
 
     full_path = os.path.abspath(local)
+    with open('sent_images.txt', 'a') as f:
+        f.write('\n'+full_path)
     return full_path
 
 
@@ -152,17 +154,20 @@ def get_new_photo(photos, i):
     local = 'flickr/' + suffix.format(**photo)
     template = prefix + suffix
     url = template.format(**photo)
-    if os.path.isfile(local):
-        url, local = get_new_photo(photos, i + 1)
+
+    with open('sent_images.txt', 'r') as f:
+        if local in f:
+            url, local = get_new_photo(photos, i + 1)
+    # if os.path.isfile(local):
+    #     url, local = get_new_photo(photos, i + 1)
     return url, local
 
 
 def query():
     '''DOCSRING
-       could eventually build this out so that it queries a
-       DB for a specific person to get the images they want to query.
-       Currently, it's just dogs my girlfriend likes, because she's
-       the most important
+       Could eventually build this out so that it queries a DB for a specific
+       person to get the images they want to query. Currently, it's just dogs
+       my girlfriend likes, because she's the most important
        ----------
        INPUTS:
        None

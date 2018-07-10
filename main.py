@@ -1,4 +1,4 @@
-import argparse
+import argparse, os
 from time import time
 from flickr_scraper import main, query
 from emailer import build_message
@@ -12,7 +12,7 @@ parser.add_argument("-to_email", "--to_email",
                     help="Email you want to send it to")
 args = parser.parse_args()
 
-poem = make_poem('weights/weights_9_10_perc_words.hdf5')
+poem = make_poem('weights/weights_127_10_perc_words.hdf5')
 tags = query()
 img = main(tags)
 
@@ -26,3 +26,5 @@ build_message(args.to_name, args.from_name,
               from_email, from_password,
               args.to_email, poem,
               img)
+
+os.remove(img)
