@@ -195,7 +195,7 @@ def make_text(model, dataX, int_to_character, n_vocab):
     print("\nDone.")
 
 
-def generate_text(model, dataX, int_to_character, n_vocab):
+def generate_text(model, dataX, int_to_character, n_vocab, length):
     ''' DOCSTRING
         Same same as make poem, but returns the poem and doesnt print it.
         ---------
@@ -212,7 +212,7 @@ def generate_text(model, dataX, int_to_character, n_vocab):
     pattern = dataX[start]
     # generate characters
     poem = ''
-    for i in range(100):
+    for i in range(length):
         x = numpy.reshape(pattern, (1, len(pattern), 1))
         x = x / float(n_vocab)
         prediction = model.predict(x, verbose=0)
@@ -305,7 +305,7 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
         model = fit_model(model, False, filepath_save, X, y)
         filepath = newest_file(folder_name)
         print('Made file: ', filepath)
-        print(generate_text(model, dataX, int_to_character, n_vocab))
+        print(generate_text(model, dataX, int_to_character, n_vocab, 1000))
         print("\a\n")
 
     top_range = start + iterations
@@ -322,7 +322,7 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
         print('saving weights to: ', filepath)
 
         # make a new poem
-        predicted_text = generate_text(model, dataX, int_to_character, n_vocab)
+        predicted_text = generate_text(model, dataX, int_to_character, n_vocab, 1000)
         print(predicted_text)
         print("\a\n")
 
@@ -335,7 +335,7 @@ def train_model(text_path, filename_start, filename_end, filepath=False,
 
 if __name__ == "__main__":
     train_model(text_path='data/pratchett.txt',
-                filepath='weights_large/50--loss_1.2281.hdf5',
+                filepath='weights_large/51--loss_1.2245.hdf5',
                 filename_start='weights_large/',
                 filename_end='--loss_{loss:.4f}.hdf5',
-                start=51)
+                start=52)
