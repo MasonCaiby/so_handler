@@ -58,9 +58,10 @@ class TextGenChar:
 
 
 class textGenModel:
-    def __init__(self, text_obj, model_dir):
+    def __init__(self, text_obj, model_dir, temp):
         self.text_obj = text_obj
         self.model_dir = model_dir
+        self.temp = temp
 
         self.model = Sequential()
 
@@ -98,16 +99,23 @@ class textGenModel:
             x = pattern[-self.text_obj.seq_length:]
             x = np.reshape(x, (1, self.text_obj.seq_length, 1))
             x = x / float(len(self.text_obj.n_char))
-            char_probs = self.model.predict(x, verbose=0)
-            result = np.argmax(char_probs)
+            char_probs = self.model.predict(x, verbose=0).astype('float64')[0]
+            char_probs = np.log(char_probs)/self.temp
+            exp_preds = np.exp(char_probs)
+            preds = exp_preds / np.sum(exp_preds)
+            probs = np.random.multinomial(1,preds,1)
+            result = np.argmax(probs)
             pattern =  np.append(pattern, result)
             full_string.append(self.text_obj.n_char[result])
         print("\"",''.join(full_string),"\"")
+
+    def get_next_char(self, char_probs):
+        pass
 
 if __name__ == "__main__":
     text = TextGenChar("data/three_musketers.txt", percent_text=0.0005)
     text.load_text()
     text.pre_processsing()
-    model = textGenModel(text_obj=text, model_dir="three_musk_model/")
+    model = textGenModel(text_obj=text, model_dir="three_musk_model/", temp=1.0)
     model.build_model()
     model.train_model()
