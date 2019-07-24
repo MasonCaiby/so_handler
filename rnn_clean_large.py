@@ -7,7 +7,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
-from emailer import build_message
+
 from helpers import safe_folder, newest_file, remote_verbose_emailer
 
 
