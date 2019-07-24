@@ -9,12 +9,13 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 class TextGenChar:
-    def __init__(self, text_file, num_chars=40, seq_length=50, email_on=False):
+    def __init__(self, text_file, num_chars=40, seq_length=50, email_on=False, percent_text=1):
         self.text_file = text_file
 
         self.num_chars = num_chars
         self.email_on = email_on
         self.seq_length = seq_length
+        self.percent_text = percent_text
 
         # load text
         self.text = None
@@ -22,6 +23,7 @@ class TextGenChar:
         self.length = 0
         self.n_char = {}
         self.char_n = {}
+        self.f_to_char = {}
 
         # pre_process
         self.X = []
@@ -32,6 +34,7 @@ class TextGenChar:
         with open(self.text_file, 'r', encoding="utf8") as text_file:
             raw_text = text_file.read()
         self.text = raw_text.lower()
+        self.text = self.text[:int(len(self.text)*self.percent_text)]
         self.corpus = self.text
         self.length = len(self.text)
 
@@ -73,8 +76,8 @@ class textGenModel:
         self.model.compile(loss='categorical_crossentropy', optimizer='adam')
 
     def train_model(self):
-        for epoch in range(50):
-            filepath = self.model_dir+"model_{}.hdf5".format(epoch)
+        for _ in range(200):
+            filepath = self.model_dir+"model_.hdf5"
 
             checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1,
                                          save_best_only=False, mode='min')
@@ -84,10 +87,25 @@ class textGenModel:
             hista = self.model.fit(self.text_obj.X_m, self.text_obj.Y_m,
                               verbose=1, epochs=1, batch_size=128,
                               callbacks=callbacks_list)
+            self.produce_text()
 
+    def produce_text(self):
+        rand_index = np.random.randint(0, len(self.text_obj.X))
+        pattern = self.text_obj.X[rand_index]
+        full_string = [self.text_obj.n_char[i] for i in pattern]
+
+        for _ in range(500):
+            x = pattern[-self.text_obj.seq_length:]
+            x = np.reshape(x, (1, self.text_obj.seq_length, 1))
+            x = x / float(len(self.text_obj.n_char))
+            char_probs = self.model.predict(x, verbose=0)
+            result = np.argmax(char_probs)
+            pattern =  np.append(pattern, result)
+            full_string.append(self.text_obj.n_char[result])
+        print("\"",''.join(full_string),"\"")
 
 if __name__ == "__main__":
-    text = TextGenChar("data/three_musketers.txt")
+    text = TextGenChar("data/three_musketers.txt", percent_text=0.0005)
     text.load_text()
     text.pre_processsing()
     model = textGenModel(text_obj=text, model_dir="three_musk_model/")
