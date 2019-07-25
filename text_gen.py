@@ -1,7 +1,7 @@
 import numpy as np
 
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, LSTM
+from keras.layers import Dense, Dropout, LSTM, BatchNormalization
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
 import os
@@ -70,12 +70,17 @@ class TextGenModel:
         self.model = Sequential()
 
     def build_model(self):
-        self.model.add(LSTM(400,
+        self.model.add(LSTM(512,
                             input_shape=(self.text_obj.X_m.shape[1],
                                          self.text_obj.X_m.shape[2]),
                             return_sequences=True))
+        self.model.add(BatchNormalization())
         self.model.add(Dropout(0.2))
-        self.model.add(LSTM(400))
+        self.model.add(LSTM(256, return_sequences=True))
+        self.model.add(BatchNormalization())
+        self.model.add(Dropout(0.2))
+        self.model.add(LSTM(128))
+        self.model.add(BatchNormalization())
         self.model.add(Dropout(0.2))
         self.model.add(Dense(self.text_obj.Y_m.shape[1], activation='softmax'))
         self.model.compile(loss='categorical_crossentropy', optimizer='adam')
