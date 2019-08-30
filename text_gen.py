@@ -131,6 +131,6 @@ if __name__ == "__main__":
     text = TextGenChar("data/three_musketers.txt", percent_text=1)
     text.load_text()
     text.pre_processsing()
-    model = TextGenModel(text_obj=text, model_dir="three_musk_model_1/", temp=1.0)
+    model = TextGenModel(text_obj=text, model_dir="three_musk_model_1/", temp=1)
     model.build_model()
     model.train_model()
