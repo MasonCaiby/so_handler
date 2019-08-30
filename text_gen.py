@@ -85,7 +85,7 @@ class TextGenModel:
         self.model.add(BatchNormalization())
         self.model.add(Activation("softmax"))
 
-        adam_optimizer = Adam(decay=1e-5, lr=0.0001)
+        adam_optimizer = Adam(decay=1e-4, lr=0.0001)
         self.model.compile(loss='categorical_crossentropy', optimizer=adam_optimizer)
 
     def train_model(self):
