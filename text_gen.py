@@ -1,3 +1,8 @@
+#import os
+#os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+#os.environ["CUDA_VISIBLE_DEVICES"]= "-1"
+
+
 import numpy as np
 import re
 import os
@@ -54,7 +59,7 @@ class TextGenChar:
         self.corpus = list(map(lambda x: self.char_n[x], [a for a in self.text]))
 
     def pre_processsing(self):
-        for i in range(self.length - self.seq_length):
+        for i in range(0,self.length - self.seq_length,5):
             sequence = self.corpus[i:i+self.seq_length]
             label = self.corpus[i+self.seq_length]
             self.X.append(sequence)
