@@ -37,7 +37,7 @@ class TextGenChar:
     def load_text(self):
         with open(self.text_file, 'r', encoding="utf8") as text_file:
             raw_text = text_file.read()
-        self.text = re.sub(r'\n+', '\n', self.text).strip()
+        self.text = re.sub(r'\n+', '\n', raw_text).strip()
         self.text = raw_text.lower()
         self.text = self.text[:int(len(self.text)*self.percent_text)]
         self.corpus = self.text
@@ -76,14 +76,11 @@ class TextGenModel:
                             input_shape=(self.text_obj.X_m.shape[1],
                                          self.text_obj.X_m.shape[2]),
                             return_sequences=True))
-        self.model.add(BatchNormalization())
         self.model.add(Dropout(0.2))
         self.model.add(LSTM(256, return_sequences=True))
-        self.model.add(BatchNormalization())
         self.model.add(Dropout(0.2))
         self.model.add(LSTM(128))
         self.model.add(BatchNormalization())
-        self.model.add(Dropout(0.2))
         self.model.add(Dense(self.text_obj.Y_m.shape[1], activation='softmax'))
         self.model.compile(loss='categorical_crossentropy', optimizer='adam')
 
@@ -126,7 +123,7 @@ class TextGenModel:
 
 
 if __name__ == "__main__":
-    text = TextGenChar("data/three_musketers.txt", percent_text=0.0005)
+    text = TextGenChar("data/gutenberg.txt", percent_text=1)
     text.load_text()
     text.pre_processsing()
     model = TextGenModel(text_obj=text, model_dir="three_musk_model/", temp=0.2)

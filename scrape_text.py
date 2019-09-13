@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 import requests
-
+import re
 
 del_text =\
 """*** START: FULL LICENSE ***
@@ -362,4 +362,7 @@ for url in urls:
 
     with open("data/gutenberg.txt", "a") as file:
         text_page = requests.get(text_link, timeout=5)
-        file.write(text_page.text.replace(del_text, ''))
+        text = re.findall(r"START OF THIS PROJECT.*END OF THIS PROJECT",
+                           text_page.text, re.DOTALL)[0]
+        text = re.sub(r'[^\x00-\x7f]',r'',text)
+        file.write(text)
