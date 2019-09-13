@@ -1,10 +1,11 @@
 import numpy as np
+import re
+import os
 
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM, BatchNormalization
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
-import os
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -36,6 +37,7 @@ class TextGenChar:
     def load_text(self):
         with open(self.text_file, 'r', encoding="utf8") as text_file:
             raw_text = text_file.read()
+        self.text = re.sub(r'\n+', '\n', self.text).strip()
         self.text = raw_text.lower()
         self.text = self.text[:int(len(self.text)*self.percent_text)]
         self.corpus = self.text
@@ -115,11 +117,11 @@ class TextGenModel:
         print("\"", ''.join(full_string), "\"")
 
     def get_next_char(self, char_probs):
-        char_probs = np.log(char_probs) / self.temp
-        exp_preds = np.exp(char_probs)
-        preds = exp_preds / np.sum(exp_preds)
-        probs = np.random.multinomial(1, preds, 1)
-        result = np.argmax(probs)
+        # char_probs = np.log(char_probs) / self.temp
+        # exp_preds = np.exp(char_probs)
+        # preds = exp_preds / np.sum(exp_preds)
+        # probs = np.random.multinomial(1, preds, 1)
+        result = np.argmax(char_probs)
         return result
 
 
@@ -127,6 +129,6 @@ if __name__ == "__main__":
     text = TextGenChar("data/three_musketers.txt", percent_text=0.0005)
     text.load_text()
     text.pre_processsing()
-    model = TextGenModel(text_obj=text, model_dir="three_musk_model/", temp=1.0)
+    model = TextGenModel(text_obj=text, model_dir="three_musk_model/", temp=0.2)
     model.build_model()
     model.train_model()
