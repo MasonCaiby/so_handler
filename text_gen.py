@@ -3,9 +3,11 @@ import re
 import os
 
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, LSTM, BatchNormalization
+from keras.layers import Dense, Dropout, LSTM, BatchNormalization, Activation
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
+from keras.optimizers import Adam
+import os
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -72,10 +74,13 @@ class TextGenModel:
         self.model = Sequential()
 
     def build_model(self):
-        self.model.add(LSTM(512,
+        self.model.add(LSTM(1024,
+
                             input_shape=(self.text_obj.X_m.shape[1],
                                          self.text_obj.X_m.shape[2]),
                             return_sequences=True))
+        self.model.add(BatchNormalization())
+        self.model.add(LSTM(512, return_sequences=True))
         self.model.add(Dropout(0.2))
         self.model.add(LSTM(256, return_sequences=True))
         self.model.add(Dropout(0.2))
@@ -83,6 +88,7 @@ class TextGenModel:
         self.model.add(BatchNormalization())
         self.model.add(Dense(self.text_obj.Y_m.shape[1], activation='softmax'))
         self.model.compile(loss='categorical_crossentropy', optimizer='adam')
+
 
     def train_model(self):
         for _ in range(200):
@@ -108,7 +114,8 @@ class TextGenModel:
             x = np.reshape(x, (1, self.text_obj.seq_length, 1))  # reshape for model
             x = x / float(len(self.text_obj.n_char))  # use the normalization function
             char_probs = self.model.predict(x, verbose=0).astype('float64')[0]  # get the probs from the model
-            result = self.get_next_char(char_probs)  # get the most likely char from results
+            #result = self.get_next_char(char_probs)  # get the most likely char from results
+            result = np.argmax(char_probs)
             pattern = np.append(pattern, result)  # add it to the string
             full_string.append(self.text_obj.n_char[result])
         print("\"", ''.join(full_string), "\"")
@@ -123,6 +130,7 @@ class TextGenModel:
 
 
 if __name__ == "__main__":
+
     text = TextGenChar("data/gutenberg.txt", percent_text=1)
     text.load_text()
     text.pre_processsing()
