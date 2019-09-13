@@ -362,7 +362,7 @@ for url in urls:
 
     with open("data/gutenberg.txt", "a") as file:
         text_page = requests.get(text_link, timeout=5)
-        text = re.findall(r"START OF THIS PROJECT.*END OF THIS PROJECT",
+        text = re.findall(r"GUTENBERG EBOOK.*PROJECT GUTENBERG",
                            text_page.text, re.DOTALL)[0]
         text = re.sub(r'[^\x00-\x7f]',r'',text)
         file.write(text)
